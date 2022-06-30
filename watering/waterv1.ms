@@ -2,7 +2,7 @@
 // tool usage functions
 // --------------------------------------------------------------------------------
 
-water = function(bot)
+doWater = function(bot)
     bot.use "Watering Can"
     bot.useTool
 end function
@@ -215,7 +215,7 @@ print "watering"
 
 spinAndFind(bot, "Property", "Water")
 if bot.ahead.type == "Property" then
-    water(bot)
+    doWater(bot)
 else
     print "no water found"
 end if
