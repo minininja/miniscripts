@@ -1,3 +1,8 @@
+north = 0
+south = 2
+west = 1
+east = 3
+
 // --------------------------------------------------------------------------------
 // tool usage functions
 // --------------------------------------------------------------------------------
@@ -40,64 +45,61 @@ end function
 // movement functions
 // --------------------------------------------------------------------------------
 
-blockingTypes = ["Crafting", "Character", "Basic", "Tree", "Clump", "Building", "Property"]
-isBlocked = function(tile)
-    if not tile then return 0
-    for t in blockingTypes
-        if tile.type == t then
-            pprint tile
-            return 1
-        end if
-    end for
-    return 0
+moveCost = function(bot, facing)
+    if bot.facing == facing then return 1
+
+    // think right
+    if ((bot.facing + 1) % 4) == facing then return 2
+    // think left
+    if ((bot.facing + 3) % 4) == facing then return 2
+    // 180
+    if ((bot.facing + 2) % 4) == facing then return 3
+end function
+
+travel = function(bot, origin, destin)
+    path = []
+
+    while bot.position.x != destin.x or bot.position.y != destin.y
+        print "travel: looking for move"
+
+        possible = []
+        for targetFacing in range(0, 4)
+            tile = fileByFacing(bot.position, targetFacing)
+
+            // could be off the edge or blocked
+            if not tile then continue
+            if isBlocked(tile) then continue
+
+            tile.facing = targetFacing
+            tile.cost = moveCost(bot, tile) + 10 * distance(tile, destin)
+            possible.push(tile)
+        end for
+
+        // find the lowest cost move
+        targetTile = null
+        for tile in possible
+            if not targetTile then targetTile = tile
+            if tile.cost < targetTile.cost then targatTile = tile
+        end for
+
+        print "travel: moving to " + targetTile
+
+        turnAndMove(bot, targetTile.facing)
+    end while
 end function
 
 turnTo = function(bot, facing)
-    if bot.facing == facing then return
-
-    print "  current facing " + bot.facing + " turning to " + facing
-    while bot.facing != facing
-        bot.left
-    end while
-end function
-
-moveForward = function(bot)
-    if isBlocked(bot.ahead) then
-        print "the way is blocked"
-        pprint bot.ahead
-        return 0
+    if ((bot.facing + 1) % 4) == facing then bot.left
+    if ((bot.facing + 4) % 4) == facing then bot.right
+    if ((bot.facing + 2) % 4) == facing then
+        bot.right
+        bot.right
     end if
-
-    bot.forward
-    return 1
 end function
 
-turnAndGo = function(bot, facing)
+turnAndMove = function(bot, facing)
     turnTo(bot, facing)
-    if not moveForward(bot) then
-        print "blocked, going around"
-        turnAndGo(bot, (facing + 1) % 4)
-    end if
-end function
-
-moveTo = function(bot, x, y)
-    north = 0
-    south = 2
-    west = 1
-    east = 3
-
-    while not (bot.position.x == x and bot.position.y == y)
-        print "  currently at " + bot.position.x + ", " + bot.position.y + " moving towards " + x + ", " + y
-        while bot.position.x != x
-            if bot.position.x < x then turnAndGo(bot, west)
-            if bot.position.x > x then turnAndGo(bot, east)
-        end while
-        while bot.position.y != y
-            if bot.position.y < y then turnAndGo(bot, south)
-            if bot.position.y > y then turnAndGo(bot, north)
-        end while
-        // print "  post move at " + bot.position.x + ", " + bot.position.y + " target is " + x + ", " + y
-    end while
+    bot.forward
 end function
 
 // --------------------------------------------------------------------------------
@@ -122,8 +124,20 @@ end function
 // world view functions
 // --------------------------------------------------------------------------------
 
+blockingTypes = ["Crafting", "Character", "Basic", "Tree", "Clump", "Building", "Property"]
+isBlocked = function(tile)
+    if not tile then return 0
+    for t in blockingTypes
+        if tile.type == t then
+            print "isBlocked: blocked " + tile
+            return 1
+        end if
+    end for
+    return 0
+end function
+
 findTilesByType = function(type, name)
-    print "  in findTilesByType"
+    print "findTilesByType: looking for " + type + " " + name
     tiles = []
     for x in range(0, farm.width)
         for y in range(0, farm.height)
@@ -141,84 +155,95 @@ findTilesByType = function(type, name)
             end if
         end for
     end for
+    print "findTilesByType: found " + tiles.len + " tiles"
     return tiles
 end function
 
-findAdjacent = function(origin, x, y)
-    targets = []
-    for i in range(-1, 1)
-        for j in range(-1, 1)
-            // print "looking at " + (x + i) + ", " + (y + j)
-            tile = farm.tile(x + i, y + j)
-            // print tile
+tileByFacing = function(currentPosition, facing)
+    x = currentPosition.x
+    y = currentPosition.y
 
-            if not tile then
-                tile = {}
-                tile.type = "Unblocked"
+    print "tileByFacing: " + x + ", " + y
+
+    // this is clunky
+    if facing == 0 then y = y + 1
+    if facing == 1 then x = x - 1
+    if facing == 2 then y = y - 1
+    if facing == 3 then x = x + 1
+
+    print "tileByFacing: " + x + ", " + y
+
+    tile = farm.tile(x, y)
+    if not tile then return
+
+    tile.x = x
+    tile.y = y
+    tile.facing = facing
+
+    print "tileByFacing: returning " + tile
+
+    return tile
+end function
+
+findAdjacent = function(origin, destin)
+    print "findAdjacent: looking for tiles"
+    targets = []
+    for i in range(0, 3)
+        possible = tileByFacing(destin, i)
+        print "findAdjacent: possible " + possible
+        if possible then
+            print "findAdjacent: looking at " + possible.x + ", " + possible.y + ": " + possible
+            if not isBlocked(possible) then
+                print "findAdjacent: not blocked"
+                // the direction to the target
+                possible.facing = (i + 2) % 4
+
+                print "findAdjacent: pushing " + possible
+                targets.push(possible)
             end if
-            if not isBlocked(tile) then
-                tile.x = x + i
-                tile.y = y + j
-                targets.push(tile)
-            end if
-        end for
+        end if
     end for
 
+    print "findAdjacent: considering " + targets.len + " tiles"
     result = null
     for t in targets
         result = findCloser(origin, result, t)
     end for
-    return result
-end function
 
-spinAndFind = function(bot, type, name)
-    for i in range(0, 3)
-        turnTo(bot, i)
-        tile = bot.ahead
-        if not tile then continue
-        if tile.type == type then
-            if name and tile.name == name then
-                break
-            else
-                break
-            end if
-        end if
-    end for
+    print "findAdjacent: returning " + result
+    return result
 end function
 
 // --------------------------------------------------------------------------------
 // the bot script
 // --------------------------------------------------------------------------------
 
-for i in range(0, 5)
-    water(bot)
+
+// for i in range(0, 5)
+//     water(bot)
+// end for
+
+waterCells = findTilesByType("Property", "Water")
+print "found " + waterCells.len + " possible locations"
+
+targets = []
+for w in waterCells
+    targets.push(findAdjacent(bot.position, waterCell))
 end for
 
-moveTo(bot, bot.position.x, bot.position.y - 5)
+// targetCell = null
+// for t in
+//     waterCell = findCloser(bot.position, waterCell, t)
+//     targetCell = findAdjacent(bot.position, waterCell)
+// end for
+// print "water adjacent location: " + targetCell
 
-water = null
-for t in findTilesByType("Property", "Water")
-    water = findCloser(bot.position, water, t)
-end for
-print "water location"
-pprint water
+//origin = bot.position
 
-target = findAdjacent(bot.position, water.x, water.y)
-print "target location"
-pprint target
+//travel(bot, target)
+//turnTo(bot, target.facing)
 
-origin = bot.position
-moveTo(bot, target.x, target.y)
+//water(bot)
 
-print "at location"
-print "watering"
-
-spinAndFind(bot, "Property", "Water")
-if bot.ahead.type == "Property" then
-    doWater(bot)
-else
-    print "no water found"
-end if
-
-print "returning home"
-moveTo(bot, origin.x, origin.y)
+//travel(bot, origin)
+//turnTo(bot, south)
