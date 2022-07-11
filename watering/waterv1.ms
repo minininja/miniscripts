@@ -241,7 +241,7 @@ pathUtils.travel = function(bot, destin)
         blocked = 0
         path = self.path(bot.facing, bot.position, destin)
         for p in self.path(bot.facing, bot.position, destin)
-            tile = farm.tile(p.x, p.y)
+            tile = self.position(p.x, p.y)
             if not tile then tile = p
 
             if blocked then
@@ -362,8 +362,3 @@ for crop in crops
 end for
 
 pathUtils.travel(bot, origin)
-
-
-
-
-
