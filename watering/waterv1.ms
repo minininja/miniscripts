@@ -204,7 +204,7 @@ pathUtils.position = function(x, y)
 end function
 
 pathUtils.isBlocked = function(tile)
-    self.log("isBlocked: start", tile, 0)
+    // self.log("isBlocked: start", tile, 0)
     if not tile then return 1
 
     if not tile.hasIndex("x") then
@@ -228,9 +228,7 @@ pathUtils.isBlocked = function(tile)
 end function
 
 pathUtils.adjacentTiles = function(tile)
-    if not tile.hasIndex("x") then
-        self.log("adjacentTiles: no x", tile, 10)
-    end if
+    self.log("adjacentTiles: starting tile", tile, 0)
     return [self.position(tile.x - 1, tile.y), self.position(tile.x + 1, tile.y), self.position(tile.x, tile.y - 1), self.position(tile.x, tile.y + 1)]
 end function
 
@@ -261,6 +259,7 @@ pathUtils.travel = function(bot, destin)
         end for
 
         // sometimes we don't end up next to where we want to be
+        self.log("travel: looking for adjacent", destin, 10)
         for t in self.adjacentTiles(destin)
             if keepGoing and self.samePosition(bot.position, t) then keepGoing = 0
         end for
@@ -274,8 +273,9 @@ pathUtils.travel = function(bot, destin)
 end function
 
 pathUtils.adjacentUnblocked = function(tile)
-    tiles = self.adjacentTiles
-    self.log("adjacentUnblocked:", tiles, 10)
+    self.log("adjacentUnblocked: looking for adjacent", destin, 1)
+    tiles = self.adjacentTiles(tile)
+    self.log("adjacentUnblocked:", tiles, 1)
     for t in tiles
         if not self.isBlocked(t) then return t
     end for
@@ -359,6 +359,12 @@ for crop in crops
             bot.useTool
         end if
     end if
+    break
 end for
 
 pathUtils.travel(bot, origin)
+
+
+
+
+
